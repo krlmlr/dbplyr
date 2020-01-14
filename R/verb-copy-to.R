@@ -46,10 +46,6 @@ copy_to.src_sql <- function(dest, df, name = deparse(substitute(df)),
                             analyze = TRUE, ...) {
   assert_that(is_string(name), is.flag(temporary))
 
-  if (!is.data.frame(df) && !inherits(df, "tbl_sql")) {
-    stop("`df` must be a local dataframe or a remote tbl_sql", call. = FALSE)
-  }
-
   if (inherits(df, "tbl_sql") && same_src(df$src, dest)) {
     out <- compute(df,
       name = name,
@@ -60,8 +56,16 @@ copy_to.src_sql <- function(dest, df, name = deparse(substitute(df)),
       ...
     )
   } else {
+    # Also accept objects that are collectable to a data frame but not inherit
+    # from it
+    df <- collect(df)
+
+    if (!is.data.frame(df)) {
+      stop("`df` must be a local dataframe or a remote tbl_sql", call. = FALSE)
+    }
+
     # avoid S4 dispatch problem in dbSendPreparedQuery
-    df <- as.data.frame(collect(df))
+    df <- as.data.frame(df)
 
     name <- db_copy_to(dest$con, name, df,
       overwrite = overwrite,
